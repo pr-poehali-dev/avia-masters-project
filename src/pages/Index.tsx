@@ -1,33 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 
 const Index = () => {
-  const [multiplier, setMultiplier] = useState(1.00);
+  const [height, setHeight] = useState(0);
+  const [distance, setDistance] = useState(0);
+  const [multiplier, setMultiplier] = useState(1.0);
   const [isFlying, setIsFlying] = useState(false);
-  const [betAmount, setBetAmount] = useState(100);
+  const [betAmount, setBetAmount] = useState(50);
   const [gameState, setGameState] = useState<'waiting' | 'flying' | 'crashed'>('waiting');
-  const [cashoutAt, setCashoutAt] = useState<number | null>(null);
-  const [balance, setBalance] = useState(10000);
+  const [balance, setBalance] = useState(100000);
   const [planePosition, setPlanePosition] = useState({ x: 0, y: 0 });
+  const [winAmount, setWinAmount] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const startGame = () => {
-    if (gameState !== 'waiting') return;
+    if (gameState !== 'waiting' || betAmount > balance) return;
     
     setGameState('flying');
     setIsFlying(true);
-    setMultiplier(1.00);
+    setHeight(0);
+    setDistance(0);
+    setMultiplier(1.0);
     setPlanePosition({ x: 0, y: 0 });
+    setBalance(prev => prev - betAmount);
     
     intervalRef.current = setInterval(() => {
+      setHeight(prev => prev + 0.1);
+      setDistance(prev => prev + 0.1);
       setMultiplier(prev => {
-        const newMultiplier = prev + 0.01;
+        const newMultiplier = prev + 0.1;
         
-        // Случайный краш между 1.2x и 10x
-        const crashPoint = 1.2 + Math.random() * 8.8;
+        // Случайный краш между 1.2x и 15x
+        const crashPoint = 1.2 + Math.random() * 13.8;
         if (newMultiplier >= crashPoint) {
           setGameState('crashed');
           setIsFlying(false);
@@ -35,12 +40,15 @@ const Index = () => {
             clearInterval(intervalRef.current);
           }
           
-          // Автоматический restart через 3 секунды
+          // Автоматический restart через 4 секунды
           setTimeout(() => {
             setGameState('waiting');
-            setMultiplier(1.00);
+            setHeight(0);
+            setDistance(0);
+            setMultiplier(1.0);
             setPlanePosition({ x: 0, y: 0 });
-          }, 3000);
+            setWinAmount(0);
+          }, 4000);
         }
         
         return Math.min(newMultiplier, crashPoint);
@@ -48,17 +56,18 @@ const Index = () => {
       
       // Движение самолёта
       setPlanePosition(prev => ({
-        x: Math.min(prev.x + 2, 400),
-        y: Math.max(prev.y - 1, -200)
+        x: Math.min(prev.x + 3, 500),
+        y: Math.max(prev.y - 2, -150)
       }));
-    }, 100);
+    }, 150);
   };
 
   const cashOut = () => {
     if (gameState !== 'flying') return;
     
-    setCashoutAt(multiplier);
-    setBalance(prev => prev + (betAmount * multiplier - betAmount));
+    const win = Math.floor(betAmount * multiplier);
+    setWinAmount(win);
+    setBalance(prev => prev + win);
     setGameState('crashed');
     setIsFlying(false);
     
@@ -68,10 +77,12 @@ const Index = () => {
     
     setTimeout(() => {
       setGameState('waiting');
-      setMultiplier(1.00);
-      setCashoutAt(null);
+      setHeight(0);
+      setDistance(0);
+      setMultiplier(1.0);
       setPlanePosition({ x: 0, y: 0 });
-    }, 3000);
+      setWinAmount(0);
+    }, 4000);
   };
 
   useEffect(() => {
@@ -83,206 +94,207 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
+    <div className="min-h-screen bg-gradient-to-b from-blue-800 via-blue-700 to-blue-900 relative overflow-hidden">
+      
       {/* Header */}
-      <div className="bg-slate-800/50 border-b border-slate-700 p-4">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <Icon name="Plane" size={32} className="text-blue-400" />
-            <h1 className="text-2xl font-bold text-white">AVIAMASTERS</h1>
+      <div className="relative z-20 p-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-yellow-500 rounded flex items-center justify-center">
+            <span className="text-black font-bold text-xl">B</span>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-white">
-              <span className="text-sm opacity-75">Баланс:</span>
-              <span className="ml-2 font-mono text-lg">{balance.toLocaleString()} ₽</span>
+          <div className="text-white">
+            <div className="font-bold text-lg">AVIAMASTERS</div>
+            <div className="text-sm opacity-75">06:33</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <Icon name="Volume2" size={24} className="text-white" />
+          <Icon name="Menu" size={24} className="text-white" />
+        </div>
+      </div>
+
+      {/* Облака фон */}
+      <div className="absolute inset-0 overflow-hidden">
+        {[...Array(6)].map((_, i) => (
+          <img
+            key={i}
+            src="/img/31bfec08-01cc-47e5-bc15-ea883e77ba7b.jpg"
+            alt="cloud"
+            className="absolute opacity-30 w-32 h-20 object-cover"
+            style={{
+              left: `${20 + i * 15}%`,
+              top: `${10 + (i % 3) * 20}%`,
+              transform: `scale(${0.8 + (i % 3) * 0.3})`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Основная игровая область */}
+      <div className="relative z-10 px-4 pt-8">
+        <div className="relative h-96">
+          
+          {/* Авианосцы */}
+          <img
+            src="/img/8bbc76c0-0c5e-4400-8cb4-dbc8eedf9fbe.jpg"
+            alt="aircraft carrier"
+            className="absolute bottom-0 left-16 w-48 h-16 object-cover opacity-80"
+          />
+          <img
+            src="/img/8bbc76c0-0c5e-4400-8cb4-dbc8eedf9fbe.jpg"
+            alt="aircraft carrier"
+            className="absolute bottom-0 right-16 w-32 h-12 object-cover opacity-60"
+          />
+
+          {/* Самолёт с анимацией */}
+          <div 
+            className={`absolute transition-all duration-150 ease-linear ${
+              isFlying ? 'opacity-100' : 'opacity-90'
+            }`}
+            style={{
+              left: `${120 + planePosition.x}px`,
+              bottom: `${80 + Math.abs(planePosition.y)}px`,
+              transform: `rotate(${planePosition.y < 0 ? -15 : 5}deg)`,
+            }}
+          >
+            <img 
+              src="/img/bc1d7714-3a1d-4f68-b07b-62d82e016175.jpg" 
+              alt="Красный биплан"
+              className="w-16 h-12 object-contain filter drop-shadow-lg"
+            />
+          </div>
+
+          {/* Информация о полёте над самолётом */}
+          {isFlying && (
+            <div 
+              className="absolute text-yellow-400 font-bold text-sm"
+              style={{
+                left: `${140 + planePosition.x}px`,
+                bottom: `${120 + Math.abs(planePosition.y)}px`,
+              }}
+            >
+              {winAmount > 0 ? `${winAmount.toLocaleString()} RUB` : `${(betAmount * multiplier).toFixed(0)} RUB`}
             </div>
+          )}
+
+          {/* Центральные показатели */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center text-white">
+            {gameState === 'crashed' && !winAmount && (
+              <div className="text-red-400 text-4xl font-bold mb-4">CRASHED!</div>
+            )}
+            {winAmount > 0 && gameState === 'crashed' && (
+              <div className="text-green-400 text-2xl font-bold">
+                ВЫ ВЫИГРАЛИ: {winAmount.toLocaleString()} RUB
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Игровое поле */}
-          <div className="lg:col-span-2">
-            <Card className="bg-slate-800/50 border-slate-700 overflow-hidden">
-              <div className="relative h-96 bg-gradient-to-t from-slate-900 to-blue-900">
-                
-                {/* Сетка */}
-                <svg className="absolute inset-0 w-full h-full opacity-20">
-                  <defs>
-                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#3b82f6" strokeWidth="1"/>
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#grid)" />
-                </svg>
-
-                {/* Множитель в центре */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className={`text-center transition-all duration-300 ${
-                    gameState === 'flying' ? 'scale-110' : 'scale-100'
-                  }`}>
-                    <div className={`text-6xl font-bold mb-2 ${
-                      gameState === 'crashed' ? 'text-red-400' : 'text-white'
-                    }`}>
-                      {multiplier.toFixed(2)}×
-                    </div>
-                    {cashoutAt && (
-                      <div className="text-green-400 text-xl">
-                        Выигрыш: {(betAmount * cashoutAt).toLocaleString()} ₽
-                      </div>
-                    )}
-                    {gameState === 'crashed' && !cashoutAt && (
-                      <div className="text-red-400 text-xl">КРАХ!</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Самолёт */}
-                <div 
-                  className={`absolute bottom-8 left-8 transition-all duration-100 ease-linear ${
-                    isFlying ? 'opacity-100' : 'opacity-70'
-                  }`}
-                  style={{
-                    transform: `translate(${planePosition.x}px, ${planePosition.y}px) rotate(-15deg)`,
-                  }}
-                >
-                  <img 
-                    src="/img/3bc03378-0dd9-41fa-aba3-b13ad85182f1.jpg" 
-                    alt="Самолёт"
-                    className="w-16 h-16 object-contain filter drop-shadow-lg"
-                  />
-                  {isFlying && (
-                    <div className="absolute -right-2 top-1/2 w-12 h-1 bg-gradient-to-r from-orange-500 to-transparent rounded-full opacity-80"></div>
-                  )}
-                </div>
-
-                {/* График траектории */}
-                {gameState === 'flying' && (
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                    <path
-                      d={`M 32 ${384 - 32} Q ${planePosition.x + 32} ${384 - 32 + planePosition.y} ${planePosition.x + 32} ${384 - 32 + planePosition.y}`}
-                      stroke="#3b82f6"
-                      strokeWidth="3"
-                      fill="none"
-                      className="opacity-60"
-                    />
-                  </svg>
-                )}
-              </div>
-            </Card>
+      {/* Нижняя панель */}
+      <div className="absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm p-4">
+        
+        {/* Показатели полёта */}
+        <div className="flex justify-center gap-8 mb-4 text-white text-sm">
+          <div className="text-center">
+            <div className="opacity-75">ВЫСОТА</div>
+            <div className="font-mono text-lg">{height.toFixed(1)}m</div>
           </div>
-
-          {/* Панель управления */}
-          <div className="space-y-4">
-            
-            {/* Ставка */}
-            <Card className="bg-slate-800/50 border-slate-700 p-4">
-              <h3 className="text-white font-semibold mb-3">Ставка</h3>
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    value={betAmount}
-                    onChange={(e) => setBetAmount(Number(e.target.value))}
-                    className="bg-slate-700 border-slate-600 text-white"
-                    disabled={gameState === 'flying'}
-                  />
-                  <span className="text-white flex items-center px-2">₽</span>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-2">
-                  {[100, 500, 1000].map((amount) => (
-                    <Button
-                      key={amount}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setBetAmount(amount)}
-                      disabled={gameState === 'flying'}
-                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
-                    >
-                      {amount}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </Card>
-
-            {/* Кнопки управления */}
-            <Card className="bg-slate-800/50 border-slate-700 p-4">
-              <div className="space-y-3">
-                {gameState === 'waiting' && (
-                  <Button
-                    onClick={startGame}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3"
-                    disabled={betAmount > balance}
-                  >
-                    <Icon name="Play" className="mr-2" size={18} />
-                    СТАРТ ({betAmount} ₽)
-                  </Button>
-                )}
-                
-                {gameState === 'flying' && (
-                  <Button
-                    onClick={cashOut}
-                    className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 animate-pulse"
-                  >
-                    <Icon name="DollarSign" className="mr-2" size={18} />
-                    ЗАБРАТЬ {(betAmount * multiplier).toFixed(0)} ₽
-                  </Button>
-                )}
-                
-                {gameState === 'crashed' && (
-                  <Button
-                    disabled
-                    className="w-full bg-slate-600 text-slate-400 font-semibold py-3"
-                  >
-                    <Icon name="RotateCcw" className="mr-2" size={18} />
-                    Следующий раунд...
-                  </Button>
-                )}
-              </div>
-            </Card>
-
-            {/* Статистика */}
-            <Card className="bg-slate-800/50 border-slate-700 p-4">
-              <h3 className="text-white font-semibold mb-3">Последние раунды</h3>
-              <div className="space-y-2">
-                {[2.45, 1.89, 5.67, 1.23, 3.45].map((mult, i) => (
-                  <div key={i} className="flex justify-between items-center text-sm">
-                    <span className="text-slate-400">#{String(i + 1).padStart(2, '0')}</span>
-                    <span className={`font-mono ${mult > 2 ? 'text-green-400' : 'text-red-400'}`}>
-                      {mult.toFixed(2)}×
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Card>
+          <div className="text-center">
+            <div className="opacity-75">ДИСТАНЦИЯ</div>
+            <div className="font-mono text-lg">{distance.toFixed(1)}m</div>
+          </div>
+          <div className="text-center">
+            <div className="opacity-75">МНОЖИТЕЛЬ</div>
+            <div className="font-mono text-xl font-bold text-yellow-400">×{multiplier.toFixed(1)}</div>
           </div>
         </div>
 
-        {/* Нижняя панель с информацией */}
-        <Card className="mt-6 bg-slate-800/50 border-slate-700 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-            <div>
-              <div className="text-2xl font-bold text-blue-400">2.47×</div>
-              <div className="text-sm text-slate-400">Средний множитель</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-green-400">67%</div>
-              <div className="text-sm text-slate-400">Успешные выводы</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-orange-400">1,247</div>
-              <div className="text-sm text-slate-400">Всего игр</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-purple-400">+15,640</div>
-              <div className="text-sm text-slate-400">Общий выигрыш</div>
+        {/* Иконки особенностей */}
+        <div className="flex justify-center gap-6 mb-4">
+          <Icon name="Turtle" size={20} className="text-white opacity-60" />
+          <Icon name="User" size={20} className="text-white opacity-60" />
+          <Icon name="Waves" size={20} className="text-white opacity-60" />
+          <Icon name="Zap" size={20} className="text-white opacity-60" />
+        </div>
+
+        {/* Управление */}
+        <div className="flex justify-between items-end">
+          
+          {/* Баланс */}
+          <div className="text-white">
+            <div className="text-sm opacity-75">БАЛАНС</div>
+            <div className="font-bold text-lg">{balance.toLocaleString('ru-RU')} RUB</div>
+          </div>
+
+          {/* Кнопки управления */}
+          <div className="flex items-center gap-4">
+            {gameState === 'waiting' && (
+              <Button
+                onClick={startGame}
+                disabled={betAmount > balance}
+                className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-black px-8 py-6 text-lg font-bold"
+              >
+                СТАРТ
+              </Button>
+            )}
+            
+            {gameState === 'flying' && (
+              <Button
+                onClick={cashOut}
+                className="bg-red-600 hover:bg-red-700 text-white px-8 py-6 text-lg font-bold animate-pulse"
+              >
+                ЗАБРАТЬ
+              </Button>
+            )}
+            
+            {gameState === 'crashed' && (
+              <Button
+                disabled
+                className="bg-gray-600 text-gray-400 px-8 py-6 text-lg font-bold"
+              >
+                ОЖИДАНИЕ...
+              </Button>
+            )}
+
+            <Icon name="RotateCcw" size={24} className="text-white" />
+          </div>
+
+          {/* Ставка */}
+          <div className="text-white text-right">
+            <div className="text-sm opacity-75">СТАВКА</div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setBetAmount(Math.max(10, betAmount - 10))}
+                disabled={gameState === 'flying'}
+                className="text-white text-xl"
+              >
+                ▼
+              </button>
+              <div className="font-bold text-lg">{betAmount.toFixed(2)} RUB</div>
+              <button 
+                onClick={() => setBetAmount(Math.min(1000, betAmount + 10))}
+                disabled={gameState === 'flying'}
+                className="text-white text-xl"
+              >
+                ▲
+              </button>
             </div>
           </div>
-        </Card>
+        </div>
+
+        {/* Большая кнопка Play */}
+        {gameState === 'waiting' && (
+          <div className="absolute -top-16 right-8">
+            <button
+              onClick={startGame}
+              disabled={betAmount > balance}
+              className="w-20 h-20 rounded-full border-4 border-white bg-transparent flex items-center justify-center hover:bg-white hover:text-black transition-colors group"
+            >
+              <Icon name="Play" size={32} className="text-white group-hover:text-black ml-1" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
